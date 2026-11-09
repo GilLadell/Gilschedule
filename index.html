@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>סדר יום יומי</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Custom Font: Assistant -->
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Assistant', sans-serif;
+            background-color: #090d16;
+            color: #f1f5f9;
+        }
+        .active-event {
+            border-right: 4px solid #f59e0b;
+            background: linear-gradient(90deg, rgba(245, 158, 11, 0.15) 0%, rgba(30, 41, 59, 0.4) 100%) !important;
+            border-color: #f59e0b !important;
+        }
+        /* Custom Scrollbar for top tabs */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-100 pb-12 select-none">
+
+    <!-- Header Section -->
+    <header class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 text-white sticky top-0 z-30 shadow-xl">
+        <div class="max-w-3xl mx-auto px-4 py-5">
+            <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div>
+                    <h1 class="text-2xl font-extrabold tracking-tight flex items-center gap-2.5 text-amber-400">
+                        <i data-lucide="book-open" class="w-7 h-7 text-amber-400"></i>
+                        סדר יום יומי
+                    </h1>
+                    <p class="text-slate-400 text-sm mt-0.5">סדר הלימוד והלו"ז הישיבתי</p>
+                </div>
+                
+                <!-- Action Buttons: Tasks & Schedule Editor -->
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button onclick="openTasksModal()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-3.5 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 text-xs sm:text-sm cursor-pointer">
+                        <i data-lucide="check-square" class="w-4 h-4"></i>
+                        <span>משימות ולימודים</span>
+                    </button>
+                    <button onclick="openScheduleEditorModal()" class="bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 font-bold px-3.5 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 text-xs sm:text-sm cursor-pointer">
+                        <i data-lucide="calendar-cog" class="w-4 h-4"></i>
+                        <span>עריכת לו"ז</span>
+                    </button>
+                </div>
+
+                <!-- Date Display & Picker -->
+                <div class="flex items-center gap-3 bg-slate-800/80 border border-slate-700 px-4 py-2 rounded-xl shadow-inner w-full sm:w-auto justify-between sm:justify-end">
+                    <div class="text-right">
+                        <div id="hebrew-date" class="text-amber-400 font-bold text-sm leading-tight">טוען תאריך עברי...</div>
+                        <div id="gregorian-date" class="text-xs text-slate-400 font-medium">--.--.----</div>
+                    </div>
+                    <div class="relative">
+                        <input type="date" id="date-picker" class="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-10">
+                        <button class="bg-slate-700 hover:bg-slate-600 p-2 rounded-lg text-amber-400 transition-all border border-slate-600" title="בחר תאריך">
+                            <i data-lucide="calendar" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Day Selector Tabs -->
+            <div class="flex items-center gap-2 mt-5 overflow-x-auto no-scrollbar pb-1 text-sm font-medium" id="day-tabs">
+                <!-- Tabs rendered by JS -->
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-3xl mx-auto px-4 mt-6">
+        
+        <!-- Live Current Status Banner -->
+        <div id="current-status-card" class="hidden mb-6 bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 shadow-lg backdrop-blur-sm flex items-start gap-3.5">
+            <div class="bg-amber-500 text-slate-950 p-2.5 rounded-xl shadow-md shrink-0 mt-0.5 animate-pulse">
+                <i data-lucide="clock" class="w-5 h-5"></i>
+            </div>
+            <div class="flex-1">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-amber-400 bg-amber-500/20 px-2.5 py-0.5 rounded-full uppercase tracking-wider border border-amber-500/30">עכשיו בלו"ז</span>
+                    <span id="current-status-time" class="text-xs font-bold text-amber-300"></span>
+                </div>
+                <h3 id="current-status-title" class="font-bold text-white text-base sm:text-lg mt-1"></h3>
+                <p id="current-status-sub" class="text-xs sm:text-sm text-slate-300 mt-0.5 hidden"></p>
+            </div>
+        </div>
+
+        <!-- Schedule Cards List -->
+        <div id="schedule-container" class="space-y-3">
+            <!-- Items rendered via JS -->
+        </div>
+
+        <!-- Toggle Hidden Passed Items Button -->
+        <div id="show-all-container" class="hidden text-center mt-6">
+            <button id="toggle-passed-btn" onclick="toggleShowPassed()" class="inline-flex items-center gap-2 text-xs sm:text-sm text-slate-400 hover:text-amber-400 bg-slate-900 border border-slate-800 hover:border-slate-700 px-4 py-2 rounded-xl transition-all shadow-sm cursor-pointer">
+                <i data-lucide="eye" class="w-4 h-4"></i>
+                <span id="toggle-passed-text">הצג אירועים שחלפו היום</span>
+            </button>
+        </div>
+
+        <!-- Friday Empty/Shabbat Note if Friday afternoon/Saturday -->
+        <div id="shabbat-note" class="hidden bg-slate-900 border border-amber-500/30 text-slate-200 rounded-2xl p-8 text-center shadow-lg my-6">
+            <i data-lucide="sparkles" class="w-12 h-12 text-amber-400 mx-auto mb-3"></i>
+            <h3 class="font-bold text-xl text-amber-300">שבת שלום ומבורך!</h3>
+            <p class="text-sm text-slate-400 mt-1">אין לו"ז ישיבתי מוגדר ליום השבת במערכת.</p>
+        </div>
+
+    </main>
+
+    <!-- Tasks & Learning Modal -->
+    <div id="tasks-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl flex flex-col max-h-[85vh]">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+                <div class="flex items-center gap-2 text-amber-400 font-bold text-lg">
+                    <i data-lucide="check-square" class="w-6 h-6"></i>
+                    <span>משימות ולימודים אישיים</span>
+                </div>
+                <button onclick="closeTasksModal()" class="text-slate-400 hover:text-white p-1 rounded-lg transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Add Task Form -->
+            <form id="add-task-form" onsubmit="handleAddTask(event)" class="flex gap-2 my-4">
+                <input type="text" id="task-input" placeholder="מה הלימוד או המשימה להיום?" required class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500">
+                <button type="submit" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-sm transition-all flex items-center gap-1.5 shrink-0">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    <span>הוסף</span>
+                </button>
+            </form>
+
+            <!-- Tasks List -->
+            <div id="tasks-list" class="flex-1 overflow-y-auto space-y-2 pr-1 no-scrollbar">
+                <!-- Task items rendered via JS -->
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="pt-4 mt-4 border-t border-slate-800 flex justify-between items-center text-xs text-slate-400">
+                <span id="tasks-counter">0 משימות</span>
+                <button onclick="clearCompletedTasks()" class="text-slate-500 hover:text-red-400 transition-colors">נקה משימות שבצעת</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Flexible Schedule Editor Modal -->
+    <div id="schedule-editor-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-xl p-5 sm:p-6 shadow-2xl relative flex flex-col max-h-[90vh]">
+            
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+                <h3 class="font-extrabold text-lg text-amber-400 flex items-center gap-2">
+                    <i data-lucide="calendar-cog" class="w-5 h-5 text-amber-400"></i>
+                    מנהל לו"ז גמיש
+                </h3>
+                <button onclick="closeScheduleEditorModal()" class="text-slate-400 hover:text-slate-200 p-1 rounded-lg hover:bg-slate-800 transition-all">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Controls: Scope Select & Day/Date Pickers -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4 bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">סוג השינוי:</label>
+                    <select id="editor-scope" onchange="handleEditorScopeChange()" class="w-full bg-slate-900 border border-slate-700 text-slate-100 text-xs sm:text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500">
+                        <option value="permanent">שינוי קבוע (לפי יום בשבוע)</option>
+                        <option value="temporary">שינוי זמני (לתאריך מסוים)</option>
+                    </select>
+                </div>
+
+                <!-- Day Selector (For Permanent Scope) -->
+                <div id="editor-day-select-container">
+                    <label class="block text-xs font-bold text-slate-300 mb-1">בחר יום בשבוע:</label>
+                    <select id="editor-day-select" onchange="renderEditorItemsList()" class="w-full bg-slate-900 border border-slate-700 text-slate-100 text-xs sm:text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500">
+                        <option value="0">יום ראשון</option>
+                        <option value="1">יום שני</option>
+                        <option value="2">יום שלישי</option>
+                        <option value="3">יום רביעי</option>
+                        <option value="4">יום חמישי</option>
+                        <option value="5">יום שישי</option>
+                    </select>
+                </div>
+
+                <!-- Date Picker (For Temporary Scope) -->
+                <div id="editor-date-select-container" class="hidden">
+                    <label class="block text-xs font-bold text-slate-300 mb-1">בחר תאריך יעד:</label>
+                    <input type="date" id="editor-date-picker" onchange="renderEditorItemsList()" class="w-full bg-slate-900 border border-slate-700 text-slate-100 text-xs sm:text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500">
+                </div>
+            </div>
+
+            <!-- Top Action Bar inside Editor -->
+            <div class="flex items-center justify-between mb-3">
+                <span id="editor-list-title" class="text-xs font-bold text-amber-400/90">אירועים מוגדרים:</span>
+                <button onclick="openAddEventForm()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 transition-all">
+                    <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                    <span>הוסף משבצת חדשה</span>
+                </button>
+            </div>
+
+            <!-- Event Form (Hidden by default) -->
+            <div id="editor-event-form" class="hidden mb-4 p-3 bg-slate-800 border border-amber-500/40 rounded-xl space-y-2.5">
+                <div class="flex justify-between items-center text-xs font-bold text-amber-400 border-b border-slate-700 pb-1.5">
+                    <span id="form-title">הוספת / עריכת משבצת</span>
+                    <button type="button" onclick="closeEventForm()" class="text-slate-400 hover:text-slate-200">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+                <input type="hidden" id="event-edit-id" value="">
+                <div>
+                    <input type="text" id="event-title-input" placeholder="שם האירוע / הלימוד *" class="w-full bg-slate-900 border border-slate-700 text-slate-100 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-[11px] text-slate-400 mb-0.5">שעת התחלה:</label>
+                        <input type="time" id="event-start-input" class="w-full bg-slate-900 border border-slate-700 text-slate-100 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-amber-500">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] text-slate-400 mb-0.5">שעת סיום:</label>
+                        <input type="time" id="event-end-input" class="w-full bg-slate-900 border border-slate-700 text-slate-100 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-amber-500">
+                    </div>
+                </div>
+                <div>
+                    <input type="text" id="event-desc-input" placeholder="תיאור / מרצה (אופציונלי)" class="w-full bg-slate-900 border border-slate-700 text-slate-100 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500">
+                </div>
+                <div class="flex justify-end gap-2 pt-1">
+                    <button type="button" onclick="closeEventForm()" class="px-3 py-1.5 bg-slate-700 text-slate-300 hover:bg-slate-600 rounded-lg text-xs">ביטול</button>
+                    <button type="button" onclick="saveEventItem()" class="px-3 py-1.5 bg-amber-500 text-slate-950 font-bold hover:bg-amber-400 rounded-lg text-xs">שמור משבצת</button>
+                </div>
+            </div>
+
+            <!-- List of events in current editor view -->
+            <div id="editor-items-list" class="space-y-2 overflow-y-auto flex-1 no-scrollbar min-h-[160px] pr-0.5">
+                <!-- Editor Items rendered via JS -->
+            </div>
+
+            <!-- Footer & Reset Options -->
+            <div class="border-t border-slate-800 pt-3 mt-4 flex items-center justify-between text-xs text-slate-400">
+                <button onclick="resetEditorCurrentView()" class="text-red-400/80 hover:text-red-400 transition-all flex items-center gap-1">
+                    <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                    <span>איפוס ללו"ז מקור</span>
+                </button>
+                <button onclick="closeScheduleEditorModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-1.5 rounded-lg font-medium transition-all">סגור</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data Structure for Daily Schedules (Sunday=0 ... Friday=5)
+        const defaultDaySchedules = {
+            // ראשון
+            0: [
+                { id: "0-1", start: "07:00", end: "08:00", title: "שחרית", desc: "" },
+                { id: "0-2", start: "08:00", end: "09:00", title: "ארוחת בוקר", desc: "" },
+                { id: "0-3", start: "09:00", end: "09:30", title: "פתיחה לסדר בוקר", desc: "" },
+                { id: "0-4", start: "09:30", end: "12:00", title: "סדר בוקר עיון", desc: "" },
+                { id: "0-5", start: "12:00", end: "13:15", title: "שיעורי עיון", desc: "" },
+                { id: "0-6", start: "13:15", end: "14:00", title: "ארוחת צהריים", desc: "" },
+                { id: "0-6a", start: "14:00", end: "15:00", title: "לימוד לבד", desc: "" },
+                { id: "0-7", start: "15:00", end: "15:30", title: "רמב\"ם עם הדר", desc: "" },
+                { id: "0-8", start: "15:30", end: "15:50", title: "מנחה", desc: "" },
+                { id: "0-9", start: "15:50", end: "16:15", title: "עבודת ה'", desc: "הרב אלחנן שרלו" },
+                { id: "0-10", start: "16:15", end: "17:00", title: "לימוד לבד (קצר)", desc: "" },
+                { id: "0-11", start: "17:00", end: "18:00", title: "עוּד", desc: "" },
+                { id: "0-12", start: "18:00", end: "19:15", title: "אימון", desc: "" },
+                { id: "0-13", start: "19:15", end: "20:00", title: "ארוחת ערב", desc: "" },
+                { id: "0-14", start: "20:00", end: "20:30", title: "ערבית", desc: "" },
+                { id: "0-15", start: "20:30", end: "22:30", title: "סדר ערב", desc: "" }
+            ],
+            // שני
+            1: [
+                { id: "1-1", start: "07:00", end: "08:00", title: "שחרית", desc: "" },
+                { id: "1-2", start: "08:00", end: "09:00", title: "ארוחת בוקר", desc: "" },
+                { id: "1-3", start: "09:00", end: "09:30", title: "פתיחה לסדר בוקר", desc: "" },
+                { id: "1-4", start: "09:30", end: "12:00", title: "סדר בוקר עיון", desc: "" },
+                { id: "1-5", start: "12:00", end: "13:00", title: "שיעורי עיון", desc: "" },
+                { id: "1-6", start: "13:00", end: "13:30", title: "ארוחת צהריים", desc: "" },
+                { id: "1-6a", start: "14:00", end: "15:00", title: "עוּד", desc: "" },
+                { id: "1-7", start: "15:00", end: "15:30", title: "רמב\"ם עם הדר", desc: "" },
+                { id: "1-8", start: "15:30", end: "15:50", title: "מנחה", desc: "" },
+                { id: "1-9", start: "15:50", end: "16:15", title: "שיחה שבועית", desc: "" },
+                { id: "1-10", start: "16:15", end: "17:00", title: "נשמת המשנה (English)", desc: "הרב יעקב נגן" },
+                { id: "1-11", start: "17:00", end: "18:00", title: "לימוד לבד", desc: "" },
+                { id: "1-12", start: "18:00", end: "19:15", title: "שיחות הר\"ן", desc: "הרב בני קלמנזון" },
+                { id: "1-13", start: "19:15", end: "20:00", title: "ארוחת ערב", desc: "" },
+                { id: "1-14", start: "20:00", end: "20:30", title: "ערבית", desc: "" },
+                { id: "1-15", start: "20:30", end: "22:30", title: "סדר ערב", desc: "" }
+            ],
+            // שלישי
+            2: [
+                { id: "2-1", start: "07:00", end: "08:00", title: "שחרית", desc: "" },
+                { id: "2-2", start: "08:00", end: "09:00", title: "ארוחת בוקר", desc: "" },
+                { id: "2-3", start: "09:00", end: "09:30", title: "פתיחה לסדר בוקר", desc: "" },
+                { id: "2-4", start: "09:30", end: "12:00", title: "סדר בוקר עיון", desc: "" },
+                { id: "2-5", start: "12:00", end: "13:00", title: "שיעורי עיון", desc: "" },
+                { id: "2-6", start: "13:00", end: "13:30", title: "ארוחת צהריים", desc: "" },
+                { id: "2-6a", start: "14:00", end: "15:00", title: "עוּד", desc: "" },
+                { id: "2-7", start: "15:00", end: "15:30", title: "רמב\"ם עם הדר", desc: "" },
+                { id: "2-8", start: "15:30", end: "15:50", title: "מנחה", desc: "" },
+                { id: "2-9", start: "15:50", end: "16:15", title: "עבודת ה'", desc: "הרב רא\"ם הכהן" },
+                { id: "2-10", start: "16:15", end: "17:00", title: "לימוד לבד (קצר)", desc: "" },
+                { id: "2-11", start: "17:00", end: "18:00", title: "מבוא לפנימיות התורה", desc: "הרב אלחנן שרלו" },
+                { id: "2-12", start: "18:00", end: "19:15", title: "אימון", desc: "" },
+                { id: "2-13", start: "19:15", end: "20:00", title: "ארוחת ערב", desc: "" },
+                { id: "2-14", start: "20:00", end: "20:30", title: "ערבית", desc: "" },
+                { id: "2-15", start: "20:30", end: "22:30", title: "סדר ערב", desc: "" },
+                { id: "2-16", start: "22:30", end: "23:15", title: "שיעורי ערב אצל הר\"מים", desc: "" }
+            ],
+            // רביעי
+            3: [
+                { id: "3-1", start: "07:00", end: "08:00", title: "שחרית", desc: "" },
+                { id: "3-2", start: "08:00", end: "09:00", title: "ארוחת בוקר", desc: "" },
+                { id: "3-3", start: "09:00", end: "09:30", title: "פתיחה לסדר בוקר", desc: "" },
+                { id: "3-4", start: "09:30", end: "12:00", title: "סדר בוקר עיון", desc: "" },
+                { id: "3-5", start: "12:00", end: "13:00", title: "שיעורי עיון", desc: "" },
+                { id: "3-6", start: "13:00", end: "13:30", title: "ארוחת צהריים", desc: "" },
+                { id: "3-6a", start: "14:00", end: "15:00", title: "לימוד לבד", desc: "" },
+                { id: "3-7", start: "15:00", end: "15:30", title: "רמב\"ם עם הדר", desc: "" },
+                { id: "3-8", start: "15:30", end: "15:50", title: "מנחה", desc: "" },
+                { id: "3-9", start: "15:50", end: "16:15", title: "עבודת ה'", desc: "הרב רא\"ם הכהן" },
+                { id: "3-10", start: "16:15", end: "17:00", title: "לימוד לבד (קצר)", desc: "" },
+                { id: "3-11", start: "17:00", end: "18:00", title: "ליקוטי מוהר\"ן", desc: "ר' מנחם קלמנזון" },
+                { id: "3-12", start: "18:00", end: "19:15", title: "עוּד", desc: "" },
+                { id: "3-13", start: "19:15", end: "20:00", title: "ארוחת ערב", desc: "" },
+                { id: "3-14", start: "20:00", end: "20:30", title: "ערבית", desc: "" },
+                { id: "3-15", start: "20:30", end: "22:30", title: "סדר ערב", desc: "" }
+            ],
+            // חמישי
+            4: [
+                { id: "4-1", start: "07:00", end: "08:00", title: "שחרית", desc: "" },
+                { id: "4-2", start: "08:00", end: "09:00", title: "ארוחת בוקר", desc: "" },
+                { id: "4-3", start: "09:00", end: "09:30", title: "פתיחה לסדר בוקר", desc: "" },
+                { id: "4-4", start: "09:30", end: "12:00", title: "סדר בוקר עיון", desc: "" },
+                { id: "4-5", start: "12:00", end: "13:15", title: "שיעור כללי", desc: "" },
+                { id: "4-6", start: "13:15", end: "14:00", title: "ארוחת צהריים", desc: "" },
+                { id: "4-6a", start: "14:00", end: "15:00", title: "עוּד", desc: "" },
+                { id: "4-7", start: "15:00", end: "15:30", title: "רמב\"ם עם הדר", desc: "" },
+                { id: "4-8", start: "15:30", end: "15:50", title: "מנחה", desc: "" },
+                { id: "4-9", start: "16:15", end: "17:00", title: "לימוד לבד - פרשת שבוע", desc: "" },
+                { id: "4-10", start: "17:00", end: "18:00", title: "סולמות אל האלוקים", desc: "הרב אמנון דוקוב" },
+                { id: "4-11", start: "18:00", end: "19:15", title: "אימון", desc: "" },
+                { id: "4-12", start: "19:15", end: "20:00", title: "ארוחת ערב", desc: "" },
+                { id: "4-13", start: "20:00", end: "20:30", title: "ערבית", desc: "" },
+                { id: "4-14", start: "20:30", end: "22:30", title: "סדר ערב", desc: "" },
+                { id: "4-15", start: "22:30", end: "23:15", title: "לימוד לבד (קצר)", desc: "" },
+                { id: "4-16", start: "23:15", end: "23:55", title: "שורש", desc: "הרב רא\"ם הכהן" }
+            ],
+            // שישי
+            5: [
+                { id: "5-1", start: "07:00", end: "08:15", title: "שחרית", desc: "" },
+                { id: "5-2", start: "08:15", end: "10:30", title: "ארוחת בוקר", desc: "" },
+                { id: "5-3", start: "10:30", end: "11:30", title: "בראשית", desc: "הרב רא\"ם הכהן" },
+                { id: "5-4", start: "11:30", end: "12:30", title: "יסודות בחסידות", desc: "ר' נדב רייכמן" },
+                { id: "5-5", start: "14:00", end: "15:00", title: "עוּד", desc: "" }
+            ]
+        };
+
+        const dayNames = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
+
+        // State Management
+        let selectedDate = new Date();
+        let showPassed = false;
+        let lastDateString = new Date().toDateString();
+
+        // Dynamic State Storage (Loaded from localStorage or standard default)
+        let customPermanentSchedules = JSON.parse(localStorage.getItem('custom_permanent_schedules') || '{}');
+        let customDateOverrides = JSON.parse(localStorage.getItem('custom_date_overrides') || '{}');
+
+        // Helper to retrieve effective day schedule
+        function getEffectiveScheduleForDate(dateObj) {
+            const dateStr = formatDateForInput(dateObj);
+            const dayOfWeek = dateObj.getDay();
+
+            let items = [];
+
+            // 1. Check for specific date override first
+            if (customDateOverrides[dateStr]) {
+                items = customDateOverrides[dateStr];
+            }
+            // 2. Check for permanent custom day schedule
+            else if (customPermanentSchedules[dayOfWeek]) {
+                items = customPermanentSchedules[dayOfWeek];
+            }
+            // 3. Fallback to default
+            else {
+                items = defaultDaySchedules[dayOfWeek] || [];
+            }
+
+            // Filter out canceled items for display and sort chronologically
+            return items.filter(item => !item.canceled).sort((a, b) => a.start.localeCompare(b.start));
+        }
+
+        // Initialization
+        document.addEventListener('DOMContentLoaded', () => {
+            initDayTabs();
+            setupDatePicker();
+            updateScheduleView();
+            
+            // Check current time / date rollover every 10 seconds
+            setInterval(() => {
+                checkMidnightReset();
+                updateActiveItemBanner();
+            }, 10000);
+        });
+
+        // Automatic reset at 00:00
+        function checkMidnightReset() {
+            const today = new Date();
+            if (today.toDateString() !== lastDateString) {
+                lastDateString = today.toDateString();
+                selectedDate = today;
+                document.getElementById('date-picker').value = formatDateForInput(selectedDate);
+                showPassed = false;
+                updateScheduleView();
+            }
+        }
+
+        // Setup Day Tabs (Sun-Fri)
+        function initDayTabs() {
+            const tabsContainer = document.getElementById('day-tabs');
+            tabsContainer.innerHTML = '';
+
+            for (let i = 0; i <= 5; i++) {
+                const btn = document.createElement('button');
+                btn.id = `tab-day-${i}`;
+                btn.className = `px-4 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all duration-200 flex items-center gap-1.5 cursor-pointer`;
+                btn.onclick = () => selectDayOfWeek(i);
+                tabsContainer.appendChild(btn);
+            }
+        }
+
+        // Handle Selecting Day via Tab
+        function selectDayOfWeek(dayIndex) {
+            const currentDay = selectedDate.getDay();
+            const diff = dayIndex - currentDay;
+            const targetDate = new Date(selectedDate);
+            targetDate.setDate(selectedDate.getDate() + diff);
+            
+            selectedDate = targetDate;
+            document.getElementById('date-picker').value = formatDateForInput(selectedDate);
+            showPassed = false;
+            updateScheduleView();
+        }
+
+        // Setup HTML Date Picker
+        function setupDatePicker() {
+            const picker = document.getElementById('date-picker');
+            picker.value = formatDateForInput(selectedDate);
+            picker.addEventListener('change', (e) => {
+                if (e.target.value) {
+                    selectedDate = new Date(e.target.value + 'T00:00:00');
+                    showPassed = false;
+                    updateScheduleView();
+                }
+            });
+        }
+
+        function formatDateForInput(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        function toggleShowPassed() {
+            showPassed = !showPassed;
+            updateScheduleView();
+        }
+
+        // Core View Update Function
+        async function updateScheduleView() {
+            const dayOfWeek = selectedDate.getDay();
+            const today = new Date();
+            const isToday = selectedDate.toDateString() === today.toDateString();
+            const currentMinutes = today.getHours() * 60 + today.getMinutes();
+
+            // Highlight active tab if Sunday-Friday
+            for (let i = 0; i <= 5; i++) {
+                const tab = document.getElementById(`tab-day-${i}`);
+                if (tab) {
+                    if (i === dayOfWeek) {
+                        tab.className = "px-4 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap bg-amber-500 text-slate-950 shadow-lg transform scale-105 cursor-pointer";
+                    } else {
+                        tab.className = "px-4 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap bg-slate-800/80 text-slate-300 hover:bg-slate-700/80 border border-slate-700/50 cursor-pointer";
+                    }
+                    tab.innerHTML = `יום ${dayNames[i]}`;
+                }
+            }
+
+            // Update Date Displays
+            updateDateHeaders();
+            fetchHebrewDate(selectedDate);
+
+            // Render Items or Shabbat View
+            const container = document.getElementById('schedule-container');
+            const shabbatNote = document.getElementById('shabbat-note');
+            const showAllContainer = document.getElementById('show-all-container');
+            
+            container.innerHTML = '';
+
+            if (dayOfWeek === 6) { // Shabbat
+                shabbatNote.classList.remove('hidden');
+                document.getElementById('current-status-card').classList.add('hidden');
+                showAllContainer.classList.add('hidden');
+                return;
+            } else {
+                shabbatNote.classList.add('hidden');
+            }
+
+            const items = getEffectiveScheduleForDate(selectedDate);
+            let hasPassedItems = false;
+
+            items.forEach((item) => {
+                const [eHours, eMins] = item.end.split(':').map(Number);
+                const endTotal = eHours * 60 + eMins;
+                const isPassed = isToday && currentMinutes >= endTotal;
+
+                if (isPassed) {
+                    hasPassedItems = true;
+                }
+
+                // If it passed today and showPassed is false, filter it out
+                if (isPassed && !showPassed) {
+                    return;
+                }
+
+                const card = document.createElement('div');
+                card.id = `card-${item.id}`;
+                card.className = `bg-slate-900/80 rounded-2xl p-4 border border-slate-800 shadow-md hover:border-slate-700 transition-all duration-200 flex items-center justify-between gap-3 ${isPassed ? 'opacity-50 bg-slate-950/50' : ''}`;
+                
+                card.innerHTML = `
+                    <div class="flex-1 min-w-0 pr-1">
+                        <div class="flex items-center gap-2">
+                            <h4 class="font-bold text-slate-100 text-base sm:text-lg leading-snug truncate title-text">${item.title}</h4>
+                        </div>
+                        ${item.desc ? `<p class="text-xs sm:text-sm text-slate-400 font-medium truncate mt-0.5">${item.desc}</p>` : ''}
+                    </div>
+                    <div class="text-left shrink-0 bg-slate-800/90 border border-slate-700/70 px-3.5 py-1.5 rounded-xl">
+                        <span class="text-xs sm:text-sm font-bold text-amber-400 dir-ltr inline-block">${item.start} - ${item.end}</span>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            // Handle empty container when all events for today are hidden
+            if (container.children.length === 0 && isToday) {
+                const emptyMsg = document.createElement('div');
+                emptyMsg.className = "text-center py-12 text-slate-400 bg-slate-900/50 rounded-2xl border border-slate-800";
+                emptyMsg.innerHTML = `
+                    <i data-lucide="check-circle-2" class="w-10 h-10 text-amber-400 mx-auto mb-2 opacity-80"></i>
+                    <p class="font-bold text-base text-slate-200">כל אירועי היום הסתיימו!</p>
+                    <p class="text-xs text-slate-500 mt-1">לו"ז חדש יתחיל אוטומטית בחצות בחמישה ל-00:00.</p>
+                `;
+                container.appendChild(emptyMsg);
+            }
+
+            // Update toggle button text & visibility
+            if (isToday && hasPassedItems) {
+                showAllContainer.classList.remove('hidden');
+                document.getElementById('toggle-passed-text').innerText = showPassed ? "הסתר אירועים שחלפו" : "הצג אירועים שחלפו היום";
+            } else {
+                showAllContainer.classList.add('hidden');
+            }
+
+            if (window.lucide) lucide.createIcons();
+            updateActiveItemBanner();
+        }
+
+        // Highlight Active Event if viewing today's schedule
+        function updateActiveItemBanner() {
+            const today = new Date();
+            const isToday = selectedDate.toDateString() === today.toDateString();
+            const dayOfWeek = selectedDate.getDay();
+            const statusCard = document.getElementById('current-status-card');
+
+            // Remove existing active highlights
+            document.querySelectorAll('.active-event').forEach(el => el.classList.remove('active-event'));
+
+            if (!isToday || dayOfWeek === 6) {
+                statusCard.classList.add('hidden');
+                return;
+            }
+
+            const currentMinutes = today.getHours() * 60 + today.getMinutes();
+            const items = getEffectiveScheduleForDate(selectedDate);
+
+            let currentEvent = null;
+
+            items.forEach(item => {
+                const [sHours, sMins] = item.start.split(':').map(Number);
+                const [eHours, eMins] = item.end.split(':').map(Number);
+                
+                const startTotal = sHours * 60 + sMins;
+                const endTotal = eHours * 60 + eMins;
+
+                if (currentMinutes >= startTotal && currentMinutes < endTotal) {
+                    currentEvent = item;
+                }
+            });
+
+            if (currentEvent) {
+                statusCard.classList.remove('hidden');
+                document.getElementById('current-status-title').innerText = currentEvent.title;
+                const subElem = document.getElementById('current-status-sub');
+                if (currentEvent.desc) {
+                    subElem.innerText = currentEvent.desc;
+                    subElem.classList.remove('hidden');
+                } else {
+                    subElem.innerText = '';
+                    subElem.classList.add('hidden');
+                }
+                document.getElementById('current-status-time').innerText = `${currentEvent.start} - ${currentEvent.end}`;
+
+                // Highlight card in list if visible
+                const activeCard = document.getElementById(`card-${currentEvent.id}`);
+                if (activeCard) {
+                    activeCard.classList.add('active-event');
+                }
+            } else {
+                statusCard.classList.add('hidden');
+            }
+        }
+
+        // --- Tasks & Learning Modal Logic ---
+        let tasks = JSON.parse(localStorage.getItem('yeshiva_tasks') || '[]');
+
+        function openTasksModal() {
+            renderTasks();
+            document.getElementById('tasks-modal').classList.remove('hidden');
+        }
+
+        function closeTasksModal() {
+            document.getElementById('tasks-modal').classList.add('hidden');
+        }
+
+        function handleAddTask(e) {
+            e.preventDefault();
+            const input = document.getElementById('task-input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            tasks.unshift({
+                id: Date.now(),
+                text: text,
+                completed: false
+            });
+
+            input.value = '';
+            saveTasks();
+            renderTasks();
+        }
+
+        function toggleTask(id) {
+            tasks = tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t);
+            saveTasks();
+            renderTasks();
+        }
+
+        function deleteTask(id) {
+            tasks = tasks.filter(t => t.id !== id);
+            saveTasks();
+            renderTasks();
+        }
+
+        function clearCompletedTasks() {
+            tasks = tasks.filter(t => !t.completed);
+            saveTasks();
+            renderTasks();
+        }
+
+        function saveTasks() {
+            localStorage.setItem('yeshiva_tasks', JSON.stringify(tasks));
+        }
+
+        function renderTasks() {
+            const list = document.getElementById('tasks-list');
+            const counter = document.getElementById('tasks-counter');
+            list.innerHTML = '';
+
+            if (tasks.length === 0) {
+                list.innerHTML = `
+                    <div class="text-center py-8 text-slate-500 text-sm">
+                        <i data-lucide="clipboard-list" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>
+                        <span>אין משימות או לימודים ברשימה</span>
+                    </div>
+                `;
+            } else {
+                tasks.forEach(task => {
+                    const item = document.createElement('div');
+                    item.className = `flex items-center justify-between gap-3 p-3 rounded-xl border ${task.completed ? 'bg-slate-950/40 border-slate-800/60 opacity-60' : 'bg-slate-800/60 border-slate-700/60'} transition-all`;
+                    item.innerHTML = `
+                        <div class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer" onclick="toggleTask(${task.id})">
+                            <input type="checkbox" ${task.completed ? 'checked' : ''} class="w-4 h-4 rounded text-amber-500 focus:ring-amber-500 accent-amber-500 cursor-pointer">
+                            <span class="text-sm text-slate-200 font-medium ${task.completed ? 'line-through text-slate-500' : ''} truncate">${task.text}</span>
+                        </div>
+                        <button onclick="deleteTask(${task.id})" class="text-slate-500 hover:text-red-400 p-1 transition-colors">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    `;
+                    list.appendChild(item);
+                });
+            }
+
+            const completedCount = tasks.filter(t => t.completed).length;
+            counter.innerText = `${tasks.length} משימות (${completedCount} הושלמו)`;
+
+            if (window.lucide) lucide.createIcons();
+        }
+
+        // --- Schedule Editor Modal Logic ---
+        function openScheduleEditorModal() {
+            document.getElementById('schedule-editor-modal').classList.remove('hidden');
+            document.getElementById('editor-date-picker').value = formatDateForInput(selectedDate);
+            document.getElementById('editor-day-select').value = selectedDate.getDay();
+            handleEditorScopeChange();
+        }
+
+        function closeScheduleEditorModal() {
+            document.getElementById('schedule-editor-modal').classList.add('hidden');
+            closeEventForm();
+        }
+
+        function handleEditorScopeChange() {
+            const scope = document.getElementById('editor-scope').value;
+            const dayContainer = document.getElementById('editor-day-select-container');
+            const dateContainer = document.getElementById('editor-date-select-container');
+
+            if (scope === 'permanent') {
+                dayContainer.classList.remove('hidden');
+                dateContainer.classList.add('hidden');
+            } else {
+                dayContainer.classList.add('hidden');
+                dateContainer.classList.remove('hidden');
+            }
+            closeEventForm();
+            renderEditorItemsList();
+        }
+
+        function getCurrentEditorKeyAndItems() {
+            const scope = document.getElementById('editor-scope').value;
+            if (scope === 'permanent') {
+                const dayIndex = parseInt(document.getElementById('editor-day-select').value);
+                const items = customPermanentSchedules[dayIndex] || defaultDaySchedules[dayIndex] || [];
+                return { scope: 'permanent', key: dayIndex, items: JSON.parse(JSON.stringify(items)) };
+            } else {
+                const dateStr = document.getElementById('editor-date-picker').value;
+                if (!dateStr) return { scope: 'temporary', key: '', items: [] };
+                const dateObj = new Date(dateStr + 'T00:00:00');
+                const items = getEffectiveScheduleForDate(dateObj);
+                return { scope: 'temporary', key: dateStr, items: JSON.parse(JSON.stringify(items)) };
+            }
+        }
+
+        function saveCurrentEditorItems(items) {
+            const scope = document.getElementById('editor-scope').value;
+
+            // Sort chronologically before saving
+            items.sort((a, b) => a.start.localeCompare(b.start));
+
+            if (scope === 'permanent') {
+                const dayIndex = parseInt(document.getElementById('editor-day-select').value);
+                customPermanentSchedules[dayIndex] = items;
+                localStorage.setItem('custom_permanent_schedules', JSON.stringify(customPermanentSchedules));
+            } else {
+                const dateStr = document.getElementById('editor-date-picker').value;
+                if (dateStr) {
+                    customDateOverrides[dateStr] = items;
+                    localStorage.setItem('custom_date_overrides', JSON.stringify(customDateOverrides));
+                }
+            }
+            updateScheduleView();
+            renderEditorItemsList();
+        }
+
+        function renderEditorItemsList() {
+            const { scope, key, items } = getCurrentEditorKeyAndItems();
+            const container = document.getElementById('editor-items-list');
+            const titleElem = document.getElementById('editor-list-title');
+
+            if (scope === 'permanent') {
+                titleElem.innerText = `לו"ז קבוע ליום ${dayNames[key]}:`;
+            } else {
+                titleElem.innerText = `לו"ז מיוחד לתאריך ${key}:`;
+            }
+
+            container.innerHTML = '';
+
+            if (items.length === 0) {
+                container.innerHTML = `<div class="text-center py-6 text-slate-500 text-xs">אין אירועים מוגדרים ליום זה.</div>`;
+                return;
+            }
+
+            // Sort items by start time
+            items.sort((a, b) => a.start.localeCompare(b.start));
+
+            items.forEach((item) => {
+                const card = document.createElement('div');
+                card.className = `p-2.5 rounded-xl border flex items-center justify-between gap-2 text-xs transition-all ${item.canceled ? 'bg-red-950/20 border-red-800/40 opacity-60' : 'bg-slate-800/70 border-slate-700/60'}`;
+                
+                card.innerHTML = `
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-amber-400 font-mono">${item.start}-${item.end}</span>
+                            <span class="font-bold text-slate-100 truncate ${item.canceled ? 'line-through text-red-300' : ''}">${item.title}</span>
+                            ${item.canceled ? '<span class="text-[10px] text-red-400 font-bold bg-red-900/40 px-1.5 rounded">מבוטל</span>' : ''}
+                        </div>
+                        ${item.desc ? `<div class="text-[11px] text-slate-400 truncate mt-0.5">${item.desc}</div>` : ''}
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0">
+                        <button onclick="editEventItem('${item.id}')" class="p-1 text-slate-400 hover:text-amber-400 rounded transition-all" title="ערוך">
+                            <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                        </button>
+                        <button onclick="toggleCancelEventItem('${item.id}')" class="p-1 ${item.canceled ? 'text-amber-400 hover:text-amber-300' : 'text-slate-400 hover:text-orange-400'} rounded transition-all" title="${item.canceled ? 'בטל ביטול' : 'סמן כביטול'}">
+                            <i data-lucide="${item.canceled ? 'rotate-ccw' : 'ban'}" class="w-3.5 h-3.5"></i>
+                        </button>
+                        <button onclick="deleteEventItem('${item.id}')" class="p-1 text-slate-400 hover:text-red-400 rounded transition-all" title="מחק משבצת">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function openAddEventForm() {
+            document.getElementById('editor-event-form').classList.remove('hidden');
+            document.getElementById('form-title').innerText = "הוספת משבצת חדשה";
+            document.getElementById('event-edit-id').value = "";
+            document.getElementById('event-title-input').value = "";
+            document.getElementById('event-start-input').value = "12:00";
+            document.getElementById('event-end-input').value = "13:00";
+            document.getElementById('event-desc-input').value = "";
+            document.getElementById('event-title-input').focus();
+        }
+
+        function closeEventForm() {
+            document.getElementById('editor-event-form').classList.add('hidden');
+        }
+
+        function editEventItem(itemId) {
+            const { items } = getCurrentEditorKeyAndItems();
+            const target = items.find(i => i.id === itemId);
+            if (!target) return;
+
+            document.getElementById('editor-event-form').classList.remove('hidden');
+            document.getElementById('form-title').innerText = "עריכת משבצת";
+            document.getElementById('event-edit-id').value = target.id;
+            document.getElementById('event-title-input').value = target.title;
+            document.getElementById('event-start-input').value = target.start;
+            document.getElementById('event-end-input').value = target.end;
+            document.getElementById('event-desc-input').value = target.desc || "";
+            document.getElementById('event-title-input').focus();
+        }
+
+        function saveEventItem() {
+            const title = document.getElementById('event-title-input').value.trim();
+            const start = document.getElementById('event-start-input').value;
+            const end = document.getElementById('event-end-input').value;
+            const desc = document.getElementById('event-desc-input').value.trim();
+            const editId = document.getElementById('event-edit-id').value;
+
+            if (!title || !start || !end) {
+                alert("נא למלא שם אירוע ושעות תקינות.");
+                return;
+            }
+
+            const { scope, key, items } = getCurrentEditorKeyAndItems();
+
+            if (editId) {
+                // Edit existing
+                const idx = items.findIndex(i => i.id === editId);
+                if (idx !== -1) {
+                    items[idx].title = title;
+                    items[idx].start = start;
+                    items[idx].end = end;
+                    items[idx].desc = desc;
+                }
+            } else {
+                // Add new
+                const newId = `${scope}-${key}-${Date.now()}`;
+                items.push({ id: newId, start, end, title, desc });
+            }
+
+            saveCurrentEditorItems(items);
+            closeEventForm();
+        }
+
+        function toggleCancelEventItem(itemId) {
+            const { items } = getCurrentEditorKeyAndItems();
+            const idx = items.findIndex(i => i.id === itemId);
+            if (idx !== -1) {
+                items[idx].canceled = !items[idx].canceled;
+                saveCurrentEditorItems(items);
+            }
+        }
+
+        function deleteEventItem(itemId) {
+            let { items } = getCurrentEditorKeyAndItems();
+            items = items.filter(i => i.id !== itemId);
+            saveCurrentEditorItems(items);
+        }
+
+        function resetEditorCurrentView() {
+            const scope = document.getElementById('editor-scope').value;
+
+            if (scope === 'permanent') {
+                const dayIndex = parseInt(document.getElementById('editor-day-select').value);
+                delete customPermanentSchedules[dayIndex];
+                localStorage.setItem('custom_permanent_schedules', JSON.stringify(customPermanentSchedules));
+            } else {
+                const dateStr = document.getElementById('editor-date-picker').value;
+                if (dateStr) {
+                    delete customDateOverrides[dateStr];
+                    localStorage.setItem('custom_date_overrides', JSON.stringify(customDateOverrides));
+                }
+            }
+            updateScheduleView();
+            renderEditorItemsList();
+        }
+
+        // Date Display Formatting
+        function updateDateHeaders() {
+            const dayName = dayNames[selectedDate.getDay()];
+            const dd = String(selectedDate.getDate()).padStart(2, '0');
+            const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
+            const yyyy = selectedDate.getFullYear();
+            
+            document.getElementById('gregorian-date').innerText = `יום ${dayName}, ${dd}.${mm}.${yyyy}`;
+        }
+
+        // Hebcal API Fetch for Accurate Hebrew Date
+        async function fetchHebrewDate(date) {
+            const yyyy = date.getFullYear();
+            const mm = date.getMonth() + 1;
+            const dd = date.getDate();
+
+            const hebDateElem = document.getElementById('hebrew-date');
+            hebDateElem.innerText = "טוען...";
+
+            try {
+                const response = await fetch(`https://www.hebcal.com/converter?cfg=json&gy=${yyyy}&gm=${mm}&gd=${dd}&g2h=1`);
+                const data = await response.json();
+                if (data && data.hebrew) {
+                    hebDateElem.innerText = data.hebrew;
+                } else {
+                    hebDateElem.innerText = "תאריך עברי";
+                }
+            } catch (err) {
+                console.error("Hebcal API error:", err);
+                hebDateElem.innerText = "תאריך עברי";
+            }
+        }
+    </script>
+</body>
+</html>
